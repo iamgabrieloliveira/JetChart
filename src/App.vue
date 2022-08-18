@@ -34,7 +34,7 @@
   />
   <Button
       v-if="chartVisible || districtsVisible"
-      :clickMethod="homePage"
+      @click="homePage"
       content="Back"
   />
 </template>
@@ -45,19 +45,11 @@ import Table from '/src/components/Table.vue';
 import Chart from '/src/components/Chart.vue';
 import ErrorMessage from '/src/components/ErrorMessage.vue';
 import Button from '/src/components/Button.vue';
-import {defineComponent} from "vue";
-import {
-  AllCityDataResponse,
-  BaseComponentData,
-  CitiesResponse,
-  CityDataResponse,
-  DataSet,
-  DistrictsResponse
-} from './types/AppTypes'
+import {defineComponent} from 'vue';
+import {BaseComponentData, ChartStyle, DataSet} from './types/AppTypes'
 
 import {BarElement, CategoryScale, Chart as ChartJS, Legend, LinearScale, Title, Tooltip} from 'chart.js'
 import axios from './axios';
-import {AxiosError} from "axios";
 
 ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale)
 
@@ -112,14 +104,13 @@ export default defineComponent({
       },
       selectedColumn: '',
       errors: [],
-      // averages: [],
       cityDistricts: [],
       currentPage: 0,
       paginateFinalIndex: 0,
     }
   },
   computed: {
-    myStyles() {
+    myStyles(): ChartStyle {
       return {
         height: '',
         width: '700px'
@@ -127,90 +118,76 @@ export default defineComponent({
     }
   },
   'created'() {
-    axios.get('http://localhost:3000/api/cities')
-        .then((res: CitiesResponse) => {
-          console.log(res)
-          this.cities = res.data
-        }).catch((error: Error | AxiosError) => console.log(error))
+    (async () => {
+      const {data} = await axios('http://localhost:3000/api/cities')
+      this.cities = data;
+    })()
   },
   methods: {
-    handleChangePage(pageNum: number) {
-      if (pageNum === this.currentPage) {
-        return
-      }
+    handleChangePage(pageNum: number): void | null {
+      if (pageNum === this.currentPage) return;
       this.currentPage = pageNum;
-      axios.get(`http://localhost:3000/api/${this.selectedCity.cidade_id}/districts/${pageNum}`)
-          .then(res => {
-            let rows = res.data;
-            let cont = (pageNum * 10) + 1;
-            const newDistricts = [];
+      (async () => {
+        const {data} = await axios(`http://localhost:3000/api/${this.selectedCity.cidade_id}/districts/${pageNum}`)
+        let rows = data.rows;
+        let cont = (pageNum * 10) + 1;
+        let newDistricts = [];
 
-            for (let row of rows) {
-              row.id = cont;
-              cont++
-              newDistricts.push(row)
-            }
-            this.cityDistricts = newDistricts;
-          }).catch(error => console.log(error))
+        for (let row of rows) {
+          row.id = cont;
+          cont++
+          newDistricts.push(row)
+        }
+        this.cityDistricts = newDistricts;
+      })();
     },
     nextPage() {
-      if (this.currentPage * 10 !== (this.paginateFinalIndex - 10)) {
-        this.currentPage++
+      if (!(this.currentPage * 10 !== (this.paginateFinalIndex - 10))) return;
+      this.currentPage++;
+      (async () => {
+        const {data} = await axios(`http://localhost:3000/api/${this.selectedCity.cidade_id}/districts/${this.currentPage}`)
+        let cont = (this.currentPage * 10) + 1;
+        const newDistricts = [];
 
-        axios.get(`http://localhost:3000/api/${this.selectedCity.cidade_id}/districts/${this.currentPage}`)
-            .then((res: CitiesResponse) => {
-              let rows = res.data;
-              let cont = (this.currentPage * 10) + 1;
-              const newDistricts = [];
-
-              for (let row of rows) {
-                row.id = cont;
-                cont++
-                newDistricts.push(row)
-              }
-              this.cityDistricts = newDistricts;
-            }).catch((error: Error | AxiosError) => console.log(error))
-      }
+        for (let row of data.rows) {
+          row.id = cont;
+          cont++
+          newDistricts.push(row)
+        }
+        this.cityDistricts = newDistricts;
+      })();
     },
     previousPage() {
-      if (this.currentPage !== 0) {
-        this.currentPage--
-      }
-      axios.get(`http://localhost:3000/api/${this.selectedCity.cidade_id}/districts/${this.currentPage}`)
-          .then(res => {
-            let rows = res.data;
-            let cont = (this.currentPage * 10) + 1;
-            const newDistricts = [];
+      if (this.currentPage !== 0) this.currentPage--;
+      (async () => {
+        const {data} = await axios(`http://localhost:3000/api/${this.selectedCity.cidade_id}/districts/${this.currentPage}`);
+        let cont = (this.currentPage * 10) + 1;
+        const newDistricts = [];
 
-            for (let row of rows) {
-              row.id = cont;
-              cont++
-              newDistricts.push(row)
-            }
-            this.cityDistricts = newDistricts;
-          }).catch(error => console.log(error))
+        for (let row of data.rows) {
+          row.id = cont;
+          cont++
+          newDistricts.push(row)
+        }
+        this.cityDistricts = newDistricts;
+      })()
     },
     fetchSelectedCityData() {
-      axios.get(`http://localhost:3000/api/${this.selectedCity.cidade_id}/${this.selectedColumn}/info`)
-          .then((res: CityDataResponse) => {
-            console.log(res)
-            let rows = res.data;
-            this.setYearsLabel(rows);
-            this.setChartData(rows, this.chartData.labels);
-            this.chartVisible = true;
-            // this.setAverageData(this.chartData.datasets);
-          }).catch((error: Error | AxiosError) => console.log(error))
+      (async () => {
+        const {data} = await axios(`http://localhost:3000/api/${this.selectedCity.cidade_id}/${this.selectedColumn}/info`);
+        this.setYearsLabel(data);
+        this.setChartData(data, this.chartData.labels);
+        this.chartVisible = true;
+      })()
     },
     fetchAllCitiesData() {
-      axios.get(`http://localhost:3000/api/${this.selectedCity.cidade_id}/*/info`)
-          .then((res: AllCityDataResponse) => {
-            let rows = res.data;
-            this.createDataSets();
-            this.setYearsLabel(rows);
-            this.setChartDataAll(rows);
-            this.chartVisible = true;
-            // this.setAverageData(this.chartData.datasets);
-          }).catch((error: Error | AxiosError) => console.log(error))
+      (async () => {
+        const {data} = await axios(`http://localhost:3000/api/${this.selectedCity.cidade_id}/*/info`);
+        this.createDataSets();
+        this.setYearsLabel(data);
+        this.setChartDataAll(data);
+        this.chartVisible = true;
+      })()
     },
     setYearsLabel(rows: any) {
       for (let row of rows) {
@@ -286,26 +263,23 @@ export default defineComponent({
       }
     },
     fetchAllCityDistricts() {
-      axios.get(`http://localhost:3000/api/${this.selectedCity.cidade_id}/districts/${this.currentPage}`)
-          .then((res: DistrictsResponse) => {
-            console.log(res)
-            this.paginateFinalIndex = res.data.count.rows[0].count;
-
-            let rows = res.data.rows;
-            let cont = 1;
-            for (let row of rows) {
-              row.id = cont;
-              cont++
-              this.cityDistricts.push(row)
-            }
-            if (this.cityDistricts.length === 0) {
-              this.cityDistricts.push({
-                id: 1,
-                nome: 'Centro'
-              });
-            }
-            this.districtsVisible = true;
-          }).catch((error: Error | AxiosError) => console.log(error))
+      (async () => {
+        const {data} = await axios(`http://localhost:3000/api/${this.selectedCity.cidade_id}/districts/${this.currentPage}`);
+        this.paginateFinalIndex = data.count.rows[0].count;
+        let cont = 1;
+        for (let row of data.rows) {
+          row.id = cont;
+          cont++
+          this.cityDistricts.push(row)
+        }
+        if (this.cityDistricts.length === 0) {
+          this.cityDistricts.push({
+            id: 1,
+            nome: 'Centro'
+          });
+        }
+        this.districtsVisible = true;
+      })()
     },
     homePage() {
       location.reload();

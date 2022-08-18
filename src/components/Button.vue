@@ -1,0 +1,1 @@
+<template>  <button      @click="clickMethod"      class="btn btn-primary">    {{ content }}  </button></template><script lang="ts">import {defineComponent} from "vue";export default defineComponent({  name: "Button",  props: {    content: String,    clickMethod: Function,  }})</script>
